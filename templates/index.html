@@ -1,0 +1,72 @@
+<!--  how to use css in python_ flask-->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <head><meta http-equiv="Content-Type" content="text/plain; charset=utf-8"/></head>
+    <title>Home</title>
+    <!--  Load CSS in Flask with html-->
+    <link rel="stylesheet" href="static/main.css" />
+  </head>
+  <div class="body">
+    <div class="downL">
+      Video 
+      <div id="video-container">
+        <img id="myImage" src="" alt="Image" />
+      </div>
+      <div class="bodyText">
+        <p id="direction"></p>
+      </div>
+      <script>
+        function rotateImage(Element, direction) {
+          let angle = '0';
+          switch (direction) {
+            case 'Left':
+              angle = '-90'
+              break;
+            case 'Right':
+              angle = '90'
+              break;
+            case 'Forward':
+              angle = '0'
+              break;
+            default:
+              break;
+          }
+          Element.style.transform = "rotate(" + angle + "deg)";
+        }
+  
+        document.addEventListener("DOMContentLoaded", function () {
+          const imgElement = document.getElementById("myImage");
+          const directionElement = document.getElementById("direction");
+          const compassImage = document.getElementById("overlay-image");
+  
+          function fetchBase64Image() {
+            fetch("/data_feed")
+              .then((response) => response.json())
+              .then((base64Image) => {
+                imgElement.src = "data:image;base64," + base64Image.frames;
+                directionElement.textContent =
+                  "Direction: " + base64Image.direction;
+  
+                //console.log('data:image;base64,' + base64Image.frames);
+                rotateImage(compassImage, base64Image.direction)
+              })
+              .catch((error) => {
+                console.error("Error fetching base64 image:", error);
+              });
+          }
+  
+          fetchBase64Image();
+          setInterval(fetchBase64Image, 10);
+        });
+      </script>
+    </div>
+
+    <div class="downR">
+      Controls<br>
+      <iframe id="log" src="/static/logFile.html" width="800" height="500" type="html/text" style="margin-top: 15px;">
+        Not supported
+      </iframe>
+    </div>
+  </div>
+</html>
