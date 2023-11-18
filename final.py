@@ -1,0 +1,137 @@
+import cv2
+import numpy as np
+    
+# define a video capture object 
+vid = cv2.VideoCapture(0) 
+
+while(True): 
+    ret, frame = vid.read() 
+
+    # hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    # ## mask of green (36,0,0) ~ (70, 255,255)
+    # mask1 = cv2.inRange(hsv, (36, 0, 0), (70, 255,255))
+    # ## mask o yellow (15,0,0) ~ (36, 255, 255)
+    # mask2 = cv2.inRange(hsv, (15,0,0), (36, 255, 255))
+    # ## final mask and masked
+    # mask = cv2.bitwise_or(mask1, mask2)
+    # masked = cv2.bitwise_and(frame,frame, mask=mask)
+    #frame = cv2.resize(frame, dsize=(500,500))
+    # convert to LAB space
+    lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
+    # store the a-channel
+    a_channel = lab[:,:,1]
+    # Automate threshold using Otsu method
+    th = cv2.threshold(a_channel,127,255,cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)[1]
+    # Mask the result with the original image
+    masked = cv2.bitwise_and(frame, frame, mask = th)
+
+    green = [0,255,0]
+    yellow = [255, 255, 0]
+    # if frame is not None:
+    #     Y1, X1 = np.where(np.all(masked== green,axis=2))
+    #     Y2, X2 = np.where(np.all(masked== yellow,axis=2))
+    #     z1 = np.column_stack((X1,Y2))
+    #     z2 = np.column_stack((X2, Y2))
+
+    #     print(z1, '\n\n\n\n\nAHHHHHHHHHHHHHHHHHHHHHHHz\n\n\n\n\n', z2)
+
+    edges = cv2.Canny(masked, 50, 150, apertureSize=3)
+
+    lines = cv2.HoughLinesP(edges, rho=1, theta=np.pi/180, threshold=70, minLineLength=100, maxLineGap=100)
+  
+    parallel_lines = []
+    if lines is not None:
+        for i in range(len(lines)):
+            for j in range(i+1, len(lines)):
+                line1 = lines[i][0]
+                line2 = lines[j][0]
+                angle1 = np.arctan2(line1[1]-line1[3], line1[0]-line1[2]) * 180 / np.pi
+                angle2 = np.arctan2(line2[1]-line2[3], line2[0]-line2[2]) * 180 / np.pi
+                if np.abs(angle1 - angle2) < 5 and np.abs(180 - angle1) < 5:
+                    parallel_lines.append((line1, line2))
+
+        frame1, frame2, frame3 = False, False, False
+        colours = []
+        colorLocation = []
+        for line in parallel_lines:
+            cv2.line(masked, (line[0][0], line[0][1]), (line[0][2], line[0][3]), (255, 255, 255), 2)
+            cv2.line(masked, (line[1][0], line[1][1]), (line[1][2], line[1][3]), (255, 255, 255), 2)
+            if int((line[0][0]+line[1][0])/2) < 450 and np.abs(line[0][1] - line[1][1]) < 20:
+                color = masked[int((line[0][0]+line[1][0])/2), int((line[0][1]+line[1][1])/2)]
+            #green is 0, 255, 0
+            #yellow is 255, 255, 0
+            #pink is like 0 0 0
+                # print(color)
+                if color[0] > 50 and color[1] > 50 and frame1 == False:
+                    colours.append('yellow')
+                    colorLocation.append(int((line[0][1]+line[1][1])/2))
+                    frame1 = True
+                    frame3 = False
+                elif color[1] > 50 and color[0] < 50 and frame2 == False:
+                    colours.append('green')
+                    colorLocation.append(int((line[0][1]+line[1][1])/2))
+                    frame2 = True
+                    frame3 = False
+                elif color[1] < 50 and color[0] < 50  and color[2] < 50 and frame3 == False:
+                    colorLocation.append(int((line[0][1]+line[1][1])/2))
+                    colours.append('pink')
+                    frame3 = True
+
+
+        # print(colours, colorLocation)
+
+        if len(colours) > 2 and 'green' in colours and 'yellow' in colours:
+            greenL = 0
+            yellowL = 0
+            c = 0
+            for n in colours:
+                if n == 'yellow':
+                    yellowL = c
+                elif n == 'green':
+                    greenL = c
+                
+                c += 1
+            if np.abs(colorLocation[yellowL] - colorLocation[greenL] > 5):
+                if colorLocation[yellowL] < colorLocation[greenL]:
+                    if colorLocation[greenL] - colorLocation[yellowL] > 20:
+                        print('green, pink, yellow')
+                    elif colorLocation[greenL] - colorLocation[yellowL] < 20:
+                        print('pink, green, yellow')
+                else:
+                    if colorLocation[yellowL] - colorLocation[yellowL] > 20:
+                        print('yellow, pink, green')
+                    else:
+                        if colorLocation[yellowL] > 300:
+                            print('yellow, green, pink')
+                        else:
+                            print('pink, yellow, green')
+            
+        #if len(colours) == 5:
+            #print(colours[0:5], colorLocation[0:5], end  = ' ')
+            # if np.abs(colorLocation[1]-colorLocation[2]) < 10 and np.abs(colorLocation[1]-colorLocation[3]) < 10 and np.abs(colorLocation[3]-colorLocation[2]) < 10:
+            #     if (colorLocation[1] < colorLocation[2]) and (colorLocation[1] < colorLocation[3]):
+            #         if colorLocation[2] < colorLocation[3]:
+            #             print(colours[1], colours[2], colours[3])
+            #         else:
+            #             print(colours[1], colours[3], colours[2])
+            #     elif colorLocation[1] < colorLocation[2] and colorLocation[1] > colorLocation[3]:
+            #         print(colours[3], colours[1], colours[2])
+            #     elif colorLocation[1] > colorLocation[2] and colorLocation[1] > colorLocation[3]:
+            #         if colorLocation[2] > colorLocation[3]:
+            #             print(colours[3], colours[2], colours[1])
+            #         else:
+            #             print(colours[2], colours[3], colours[1])
+            #     elif colorLocation[1] > colorLocation[2] and colorLocation[1] < colorLocation[3]:
+            #         print(colours[2], colours[3], colours[1])
+
+            #print('\n')
+
+    cv2.imshow('frame', masked)
+
+    if cv2.waitKey(1) & 0xFF == ord('q'): 
+        break
+
+# After the loop release the cap object 
+vid.release() 
+# Destroy all the windows 
+cv2.destroyAllWindows() 
